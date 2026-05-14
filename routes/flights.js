@@ -1,96 +1,46 @@
 const express = require('express');
 const router = express.Router();
-const { generateFlights } = require('../data/flights');
 const { resolveAirport } = require('../data/airports');
 
-/**
- * POST /api/flights/search
- * Body: { "origin": "LAX", "destination": "JFK", "date": "2026-06-15" }
- *   OR: { "origin_city": "Los Angeles", "destination_city": "New York", "date": "2026-06-15" }
- * Returns: list of available flights or 404 if none
- */
-router.post('/search', (req, res) => {
+const PHONELY_API = 'https://zz1mpoguje.execute-api.us-east-1.amazonaws.com/default/airline-assessment';
+
+router.post('/search', async (req, res) => {
   let { origin, destination, date, origin_city, destination_city } = req.body;
 
-  // Auto-resolve cities if IATA not provided directly
+  // Auto-resolve cities to IATA
   if (!origin && origin_city) {
     const r = resolveAirport(origin_city);
-    if (!r.found) {
-      return res.status(404).json({
-        error: 'Origin airport not found',
-        message: `Unknown city or airport: "${origin_city}"`,
-      });
-    }
+    if (!r.found) return res.status(404).json({ error: 'Origin airport not found', message: `Unknown city or airport: "${origin_city}"` });
     origin = r.iata;
   }
-
   if (!destination && destination_city) {
     const r = resolveAirport(destination_city);
-    if (!r.found) {
-      return res.status(404).json({
-        error: 'Destination airport not found',
-        message: `Unknown city or airport: "${destination_city}"`,
-      });
-    }
+    if (!r.found) return res.status(404).json({ error: 'Destination airport not found', message: `Unknown city or airport: "${destination_city}"` });
     destination = r.iata;
   }
 
-  // Validate required fields
   if (!origin || !destination || !date) {
-    return res.status(400).json({
-      error: 'Missing required fields',
-      required: ['origin (IATA or origin_city)', 'destination (IATA or destination_city)', 'date (YYYY-MM-DD)'],
-    });
+    return res.status(400).json({ error: 'Missing required fields: origin, destination, date' });
   }
 
   // Validate date
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = new Date(); today.setHours(0,0,0,0);
   const travelDate = new Date(date);
+  if (isNaN(travelDate.getTime())) return res.status(400).json({ error: 'Invalid date', message: 'Date must be in YYYY-MM-DD format.' });
+  if (travelDate < today) return res.status(400).json({ error: 'Invalid date', message: 'Travel date must be today or in the future.' });
+  const oneYear = new Date(); oneYear.setFullYear(oneYear.getFullYear() + 1);
+  if (travelDate > oneYear) return res.status(400).json({ error: 'Invalid date', message: 'Travel date must be within one year from today.' });
 
-  if (isNaN(travelDate.getTime())) {
-    return res.status(400).json({
-      error: 'Invalid date',
-      message: 'Date must be in YYYY-MM-DD format.',
-    });
+  // Call real Phonely API
+  const url = `${PHONELY_API}?src=${origin.toUpperCase()}&dst=${destination.toUpperCase()}&date=${date}`;
+  const response = await fetch(url);
+  const data = await response.json();
+
+  if (!data.flights || data.flights.length === 0) {
+    return res.status(404).json({ error: 'No flights available', message: `No flights found from ${origin} to ${destination} on ${date}.`, origin, destination, date });
   }
 
-  if (travelDate < today) {
-    return res.status(400).json({
-      error: 'Invalid date',
-      message: 'Travel date must be today or in the future.',
-    });
-  }
-
-  const oneYearFromNow = new Date();
-  oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
-  if (travelDate > oneYearFromNow) {
-    return res.status(400).json({
-      error: 'Invalid date',
-      message: 'Travel date must be within one year from today.',
-    });
-  }
-
-  // Generate flights
-  const flights = generateFlights(origin.toUpperCase(), destination.toUpperCase(), date);
-
-  if (flights.length === 0) {
-    return res.status(404).json({
-      error: 'No flights available',
-      message: `No flights found from ${origin.toUpperCase()} to ${destination.toUpperCase()} on ${date}. Please try a different route or date.`,
-      origin: origin.toUpperCase(),
-      destination: destination.toUpperCase(),
-      date,
-    });
-  }
-
-  return res.json({
-    origin: origin.toUpperCase(),
-    destination: destination.toUpperCase(),
-    date,
-    flights_count: flights.length,
-    flights,
-  });
+  return res.json({ origin: origin.toUpperCase(), destination: destination.toUpperCase(), date, flights_count: data.flights.length, flights: data.flights });
 });
 
 module.exports = router;

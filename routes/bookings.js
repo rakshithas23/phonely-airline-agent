@@ -1,71 +1,48 @@
 const express = require('express');
 const router = express.Router();
 const { createBooking, getBooking } = require('../data/bookings');
-const { generateFlights } = require('../data/flights');
 
-router.post('/create', (req, res) => {
-  const { flight_id, origin, destination, date, passenger, seat_class = 'economy' } = req.body;
+const PHONELY_API = 'https://zz1mpoguje.execute-api.us-east-1.amazonaws.com/default/airline-assessment';
 
-  // Validate passenger info
-  if (!passenger?.full_name) {
-    return res.status(400).json({ error: 'Passenger full name is required.' });
-  }
-  if (!passenger?.contact) {
-    return res.status(400).json({ error: 'Passenger contact (email or phone) is required.' });
-  }
+router.post('/create', async (req, res) => {
+  const { flightId, origin, destination, date, passenger, seat_class = 'economy', flight } = req.body;
 
-  // Detect contact type
+  if (!passenger?.full_name) return res.status(400).json({ error: 'Passenger full name is required.' });
+  if (!passenger?.contact) return res.status(400).json({ error: 'Passenger contact is required.' });
+
   const isUSPhone = /^\+?1?[-.\s]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}$/.test(passenger.contact);
   const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(passenger.contact);
-
-  if (!isUSPhone && !isEmail) {
-    return res.status(400).json({
-      error: 'Invalid contact info',
-      message: 'Please provide a valid US phone number or email address.',
-    });
-  }
-
+  if (!isUSPhone && !isEmail) return res.status(400).json({ error: 'Invalid contact info', message: 'Please provide a valid US phone number or email address.' });
   passenger.contact_type = isUSPhone ? 'sms' : 'email';
 
-  if (!origin || !destination || !date) {
-    return res.status(400).json({ error: 'origin, destination, and date are required to look up the flight.' });
-  }
+  // Call real Phonely booking API
+  const url = `${PHONELY_API}?src=${origin}&dst=${destination}&date=${date}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      flightId,
+      passenger: { firstName: passenger.full_name.split(' ')[0], lastName: passenger.full_name.split(' ').slice(1).join(' ') },
+      date
+    })
+  });
 
-  const flights = generateFlights(origin.toUpperCase(), destination.toUpperCase(), date);
-  const flight = flights.find(f => f.flight_id === flight_id);
+  const data = await response.json();
 
-  if (!flight) {
-    return res.status(404).json({
-      error: 'Flight not found',
-      message: `Flight ${flight_id} not found for route ${origin}-${destination} on ${date}.`,
-    });
-  }
-
-  // Validate seat class
-  if (!['economy', 'business'].includes(seat_class)) {
-    return res.status(400).json({ error: 'seat_class must be "economy" or "business".' });
-  }
-
-  const booking = createBooking({ flight, passenger, seat_class });
+  // Create local booking record with confirmation number
+  const booking = createBooking({ flight: { ...flight, flight_id: flightId }, passenger, seat_class });
 
   return res.status(201).json({
     success: true,
     message: `Booking confirmed! Your confirmation number is ${booking.confirmation_number}.`,
     booking,
+    phonely_response: data
   });
 });
 
 router.get('/:confirmation', (req, res) => {
-  const { confirmation } = req.params;
-  const booking = getBooking(confirmation);
-
-  if (!booking) {
-    return res.status(404).json({
-      error: 'Booking not found',
-      message: `No booking found with confirmation number ${confirmation}.`,
-    });
-  }
-
+  const booking = getBooking(req.params.confirmation);
+  if (!booking) return res.status(404).json({ error: 'Booking not found' });
   return res.json(booking);
 });
 
