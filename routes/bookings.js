@@ -32,7 +32,7 @@ router.post('/create', async (req, res) => {
   // Create local booking record with confirmation number
   const booking = createBooking({ flight: { ...flight, flight_id: flightId }, passenger, seat_class });
 
-  return res.status(201).json({
+  return res.status(200).json({
     success: true,
     message: `Booking confirmed! Your confirmation number is ${booking.confirmation_number}.`,
     booking,
