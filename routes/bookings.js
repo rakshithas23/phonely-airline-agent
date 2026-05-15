@@ -5,7 +5,7 @@ const { createBooking, getBooking } = require('../data/bookings');
 const PHONELY_API = 'https://zz1mpoguje.execute-api.us-east-1.amazonaws.com/default/airline-assessment';
 
 router.post('/create', async (req, res) => {
-  const flightId = req.body.flightId || req.body.flight_id;
+  const flightId = req.body.flightId || req.body.flight_id || req.body.flight?.flightId;
   const { origin, destination, date, passenger, seat_class = 'economy' } = req.body;
   const flightDetails = req.body.flight || {};
 
@@ -42,22 +42,22 @@ router.post('/create', async (req, res) => {
 
   // Build local booking — use passed-in flight details if available, fallback to bookData
   const booking = createBooking({
-    flight: {
-      flightId,
-      flightNumber: flightDetails.flightNumber || bookData?.flightNumber,
-      airline: flightDetails.airline || bookData?.airline,
-      origin,
-      destination,
-      departure_date: date,
-      departureTime: flightDetails.departureTime || bookData?.departureTime,
-      arrivalTime: flightDetails.arrivalTime || bookData?.arrivalTime,
-      price: flightDetails.price || bookData?.price,
-    },
-    passenger,
-    seat_class,
-  });
+  flight: {
+    flightId,
+    flightNumber: bookData?.flightNumber || flightDetails.flightNumber,
+    airline: bookData?.airline || flightDetails.airline,
+    origin,
+    destination,
+    departure_date: date,
+    departureTime: bookData?.departureTime || flightDetails.departureTime,
+    arrivalTime: bookData?.arrivalTime || flightDetails.arrivalTime,
+    price: bookData?.price || flightDetails.price,
+  },
+  passenger,
+  seat_class,
+});
 
-  return res.status(201).json({
+  return res.status(200).json({
     success: true,
     message: `Booking confirmed! Your confirmation number is ${booking.confirmation_number}.`,
     booking,
