@@ -49,8 +49,11 @@ router.post('/create', async (req, res) => {
     const flights = searchData.flights || [];
 
     if (selectedOption) {
-      // Caller said "Option 2" → pick index (selectedOption - 1)
-      const idx = parseInt(selectedOption) - 1;
+      // Handle "Option 1", "option one", "1", "one" etc.
+      const wordToNum = { one: 1, two: 2, three: 3, four: 4, five: 5 };
+      const cleaned = String(selectedOption).toLowerCase().replace(/[^a-z0-9]/g, ' ').trim();
+      const num = parseInt(cleaned) || wordToNum[cleaned.split(' ').pop()] || 1;
+      const idx = num - 1;
       resolvedFlight = flights[idx] || flights[0];
     } else if (flightId) {
       resolvedFlight = flights.find(f => f.flightId === flightId);
