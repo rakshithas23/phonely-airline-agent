@@ -71,12 +71,29 @@ router.post('/search', async (req, res) => {
     const options = {};
     prompt_context.forEach(f => { options['option' + f.option] = f; });
 
+    // Build pre-formatted speech string for Phonely to read verbatim
+    const formatTime = (iso) => {
+      const d = new Date(iso);
+      let h = d.getUTCHours(), m = d.getUTCMinutes();
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12 || 12;
+      return m === 0 ? h + ' ' + ampm : h + ':' + String(m).padStart(2,'0') + ' ' + ampm;
+    };
+
+    const speech = prompt_context.map(f =>
+      'Option ' + f.option + ': ' + f.airline + ', flight ' + f.flightNumber +
+      ', departing at ' + formatTime(f.departureTime) +
+      ', arriving at ' + formatTime(f.arrivalTime) +
+      '. Price: dollar ' + f.price + '.'
+    ).join(' ') + ' Which option would you like?';
+
     return res.json({
       success: true,
       origin: origin.toUpperCase(),
       destination: destination.toUpperCase(),
       date,
       flights_count: data.flights.length,
+      speech,
       ...options,
       prompt_context,
       flights: data.flights,
