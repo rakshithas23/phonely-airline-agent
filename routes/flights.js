@@ -23,24 +23,50 @@ router.post('/search', async (req, res) => {
     return res.status(400).json({ error: 'Missing required fields: origin, destination, date' });
   }
 
-  // Validate date
-  const today = new Date(); today.setHours(0,0,0,0);
-  const travelDate = new Date(date);
-  if (isNaN(travelDate.getTime())) return res.status(400).json({ error: 'Invalid date', message: 'Date must be in YYYY-MM-DD format.' });
-  if (travelDate < today) return res.status(400).json({ error: 'Invalid date', message: 'Travel date must be today or in the future.' });
-  const oneYear = new Date(); oneYear.setFullYear(oneYear.getFullYear() + 1);
-  if (travelDate > oneYear) return res.status(400).json({ error: 'Invalid date', message: 'Travel date must be within one year from today.' });
-
-  // Call real Phonely API
-  const url = `${PHONELY_API}?src=${origin.toUpperCase()}&dst=${destination.toUpperCase()}&date=${date}`;
-  const response = await fetch(url);
-  const data = await response.json();
-
-  if (!data.flights || data.flights.length === 0) {
-    return res.status(404).json({ error: 'No flights available', message: `No flights found from ${origin} to ${destination} on ${date}.`, origin, destination, date });
+  // Validate date — parse as local midnight to avoid UTC offset issues
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const travelDate = new Date(date + 'T00:00:00');
+  if (isNaN(travelDate.getTime())) {
+    return res.status(400).json({ error: 'Invalid date', message: 'Date must be in YYYY-MM-DD format.' });
+  }
+  if (travelDate < today) {
+    return res.status(400).json({ error: 'Invalid date', message: 'Travel date must be today or in the future.' });
+  }
+  const oneYear = new Date();
+  oneYear.setFullYear(oneYear.getFullYear() + 1);
+  if (travelDate > oneYear) {
+    return res.status(400).json({ error: 'Invalid date', message: 'Travel date must be within one year from today.' });
   }
 
-  return res.json({ origin: origin.toUpperCase(), destination: destination.toUpperCase(), date, flights_count: data.flights.length, flights: data.flights });
+  // Call Phonely API
+  const url = `${PHONELY_API}?src=${origin.toUpperCase()}&dst=${destination.toUpperCase()}&date=${date}`;
+
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (!response.ok || !data.flights || data.flights.length === 0) {
+      return res.status(404).json({
+        error: 'No flights available',
+        message: `No flights found from ${origin} to ${destination} on ${date}.`,
+        origin,
+        destination,
+        date,
+      });
+    }
+
+    return res.json({
+      origin: origin.toUpperCase(),
+      destination: destination.toUpperCase(),
+      date,
+      flights_count: data.flights.length,
+      flights: data.flights,
+    });
+  } catch (err) {
+    console.error('[flights/search] Upstream error:', err.message);
+    return res.status(502).json({ error: 'Upstream API error', message: 'Could not reach the flight availability service. Please try again.' });
+  }
 });
 
 module.exports = router;
