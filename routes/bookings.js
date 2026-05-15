@@ -5,9 +5,9 @@ const { createBooking, getBooking } = require('../data/bookings');
 const PHONELY_API = 'https://zz1mpoguje.execute-api.us-east-1.amazonaws.com/default/airline-assessment';
 
 router.post('/create', async (req, res) => {
-  // Accept both flightId and flight_id for flexibility
   const flightId = req.body.flightId || req.body.flight_id;
   const { origin, destination, date, passenger, seat_class = 'economy' } = req.body;
+  const flightDetails = req.body.flight || {};
 
   if (!flightId) return res.status(400).json({ error: 'flightId is required.' });
   if (!origin || !destination || !date) return res.status(400).json({ error: 'origin, destination, and date are required.' });
@@ -18,19 +18,11 @@ router.post('/create', async (req, res) => {
   const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(passenger.contact);
   if (!isUSPhone && !isEmail) return res.status(400).json({ error: 'Invalid contact info. Provide a US phone number or email address.' });
   passenger.contact_type = isUSPhone ? 'sms' : 'email';
-
-  const searchUrl = `${PHONELY_API}?src=${origin}&dst=${destination}&date=${date}`;
-  let flight, bookData;
+  const bookUrl = `${PHONELY_API}?src=${origin}&dst=${destination}&date=${date}`;
+  let bookData;
 
   try {
-    // Fetch flight details
-    const searchResponse = await fetch(searchUrl);
-    const searchData = await searchResponse.json();
-    flight = searchData.flights?.find(f => f.flightId === flightId);
-    if (!flight) return res.status(404).json({ error: 'Flight not found.', message: `No flight with ID "${flightId}" found on that route and date.` });
-
-    // Book via Phonely API
-    const bookResponse = await fetch(searchUrl, {
+    const bookResponse = await fetch(bookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -45,31 +37,31 @@ router.post('/create', async (req, res) => {
     bookData = await bookResponse.json();
   } catch (err) {
     console.error('[bookings/create] Upstream error:', err.message);
-    return res.status(502).json({ error: 'Upstream API error', message: 'Could not complete the booking with the airline system. Please try again.' });
+    return res.status(502).json({ error: 'Upstream API error', message: 'Could not complete the booking. Please try again.' });
   }
 
-  // Create local booking with full flight details
+  // Build local booking — use passed-in flight details if available, fallback to bookData
   const booking = createBooking({
     flight: {
       flightId,
-      flightNumber: flight?.flightNumber,
-      airline: flight?.airline,
+      flightNumber: flightDetails.flightNumber || bookData?.flightNumber,
+      airline: flightDetails.airline || bookData?.airline,
       origin,
       destination,
       departure_date: date,
-      departureTime: flight?.departureTime,
-      arrivalTime: flight?.arrivalTime,
-      price: flight?.price
+      departureTime: flightDetails.departureTime || bookData?.departureTime,
+      arrivalTime: flightDetails.arrivalTime || bookData?.arrivalTime,
+      price: flightDetails.price || bookData?.price,
     },
     passenger,
-    seat_class
+    seat_class,
   });
 
   return res.status(201).json({
     success: true,
     message: `Booking confirmed! Your confirmation number is ${booking.confirmation_number}.`,
     booking,
-    phonely_response: bookData
+    phonely_response: bookData,
   });
 });
 
