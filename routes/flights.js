@@ -56,27 +56,12 @@ router.post('/search', async (req, res) => {
       });
     }
 
-    const prompt_context = data.flights.map((f, index) => ({
-      option: index + 1,
-      flightId: f.flightId,
-      airline: f.airline,
-      flightNumber: f.flightNumber,
-      departureTime: f.departureTime,
-      arrivalTime: f.arrivalTime,
-      price: f.price
-    }));
-
     return res.json({
-      success: true,
-
-      option1: prompt_context[0] || null,
-      option2: prompt_context[1] || null,
-      option3: prompt_context[2] || null,
-      option4: prompt_context[3] || null,
-      option5: prompt_context[4] || null,
-
-      prompt_context,
-      flights: data.flights
+      origin: origin.toUpperCase(),
+      destination: destination.toUpperCase(),
+      date,
+      flights_count: data.flights.length,
+      flights: data.flights,
     });
   } catch (err) {
     console.error('[flights/search] Upstream error:', err.message);

@@ -18,13 +18,27 @@ router.post('/send', async (req, res) => {
 
   const plainText = `SkyLine Airlines – Booking Confirmed!\n\nConfirmation: ${confNum}\nPassenger: ${passenger.full_name}\nClass: ${seat_class}\nPrice: $${price_usd} USD\n\nFlight: ${flight.flight_number} (${flight.airline})\nFrom: ${flight.origin} → ${flight.destination}\nDate: ${flight.departure_date}\nDeparts: ${flight.departure_time} | Arrives: ${flight.arrival_time}`;
 
+  const htmlBody = `
+    <h2>SkyLine Airlines – Booking Confirmed! ✈️</h2>
+    <p><strong>Confirmation:</strong> ${confNum}</p>
+    <p><strong>Passenger:</strong> ${passenger.full_name}</p>
+    <p><strong>Class:</strong> ${seat_class}</p>
+    <p><strong>Price:</strong> $${price_usd} USD</p>
+    <hr/>
+    <p><strong>Flight:</strong> ${flight.flight_number} (${flight.airline})</p>
+    <p><strong>From:</strong> ${flight.origin} → ${flight.destination}</p>
+    <p><strong>Date:</strong> ${flight.departure_date}</p>
+    <p><strong>Departs:</strong> ${flight.departure_time} | <strong>Arrives:</strong> ${flight.arrival_time}</p>
+  `;
+
   try {
     if (isEmail) {
       await resend.emails.send({
-        from: 'onboarding@resend.dev', 
+        from: 'onboarding@resend.dev',       // ← use this until you verify a domain
         to: passenger.contact,
         subject: `Booking Confirmed – ${confNum}`,
-        text: plainText,
+        html: htmlBody,
+        text: plainText,                      // fallback for plain-text email clients
       });
     } else {
       await twilioClient.messages.create({
