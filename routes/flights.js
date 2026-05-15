@@ -56,11 +56,29 @@ router.post('/search', async (req, res) => {
       });
     }
 
+    // Build numbered options for Phonely Talk node (prompt_context)
+    const prompt_context = data.flights.map((f, i) => ({
+      option: i + 1,
+      flightId: f.flightId,
+      airline: f.airline,
+      flightNumber: f.flightNumber,
+      departureTime: f.departureTime,
+      arrivalTime: f.arrivalTime,
+      price: f.price,
+    }));
+
+    // Also expose as option1, option2 etc. for easy variable access
+    const options = {};
+    prompt_context.forEach(f => { options['option' + f.option] = f; });
+
     return res.json({
+      success: true,
       origin: origin.toUpperCase(),
       destination: destination.toUpperCase(),
       date,
       flights_count: data.flights.length,
+      ...options,
+      prompt_context,
       flights: data.flights,
     });
   } catch (err) {
