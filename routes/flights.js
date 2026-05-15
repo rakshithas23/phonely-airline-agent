@@ -57,11 +57,18 @@ router.post('/search', async (req, res) => {
     }
 
     return res.json({
-      origin: origin.toUpperCase(),
-      destination: destination.toUpperCase(),
-      date,
-      flights_count: data.flights.length,
-      flights: data.flights,
+      success: true,
+      prompt_context: data.flights.map((f, index) => ({
+        option: index + 1,
+        flightId: f.flightId,
+        airline: f.airline,
+        flightNumber: f.flightNumber,
+        departureTime: f.departureTime,
+        arrivalTime: f.arrivalTime,
+        price: f.price
+      })),
+
+      flights: data.flights
     });
   } catch (err) {
     console.error('[flights/search] Upstream error:', err.message);
