@@ -20,7 +20,7 @@ airline-agent/
 │   ├── airports.js           # POST /api/airports/resolve
 │   ├── flights.js            # POST /api/flights/search
 │   ├── bookings.js           # POST /api/bookings/create
-│   └── notify.js             # POST /api/notify/send
+│              
 ├── data/
 │   ├── airports.js           # IATA lookup map
 │   ├── flights.js            # Mock flight generator
@@ -77,13 +77,6 @@ POST /api/bookings/create
   "seat_class": "economy"
 }
 → { confirmation_number: "A3K9MR", booking: {...} }
-```
-
-### Send Notification
-```
-POST /api/notify/send
-{ "confirmation_number": "A3K9MR" }
-→ { success: true, channel: "Email", sent_to: "jane@email.com" }
 ```
 
 ---

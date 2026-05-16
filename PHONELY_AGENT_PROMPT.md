@@ -46,7 +46,6 @@ Summarize and confirm:
 "Just to confirm — you'd like to book [flight number] on [date] from [origin] to [destination], [seat class] class, for $[price]. The confirmation will be sent to [contact]. Shall I go ahead and book this?"
 
 If yes → Call `POST /api/bookings/create`
-Then call `POST /api/notify/send` to send the confirmation.
 
 ### Step 7 — Wrap Up
 "Your booking is confirmed! Your confirmation number is [XXXXXX]. You'll receive your details shortly. Is there anything else I can help you with?"
@@ -98,5 +97,4 @@ Examples:
 | Resolve Airport | POST | /api/airports/resolve | `city` |
 | Search Flights | POST | /api/flights/search | `origin_city`, `destination_city`, `date` |
 | Create Booking | POST | /api/bookings/create | `flight_id`, `origin`, `destination`, `date`, `passenger`, `seat_class` |
-| Send Confirmation | POST | /api/notify/send | `confirmation_number` |
 | Get Booking | GET | /api/bookings/:confirmation | — |
